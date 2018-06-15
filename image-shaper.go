@@ -60,12 +60,17 @@ func sqrtDiff(x, y uint8) uint64 {
 }
 
 // getMoreSimilarImage compares image a and image b against a source image and returns the image which is more similar with the source image
-func getMoreSimilarImage(a, b, src *image.RGBA) (*image.RGBA, error) {
-	aNum, err := compareImages(a, src)
+func getMoreSimilarImage(a, b, src *image.RGBA, changedArea image.Rectangle) (*image.RGBA, error) {
+	// Get subimages of the changed areas of the images so the whole image does not need to be compared
+	aChanged := imageToRGBA(a.SubImage(changedArea))
+	bChanged := imageToRGBA(b.SubImage(changedArea))
+	srcChanged := imageToRGBA(src.SubImage(changedArea))
+
+	aNum, err := compareImages(aChanged, srcChanged)
 	if err != nil {
 		return nil, err
 	}
-	bNum, err := compareImages(b, src)
+	bNum, err := compareImages(bChanged, srcChanged)
 	if err != nil {
 		panic(err)
 	}
@@ -204,11 +209,12 @@ Draw:
 		}
 
 		randomColour := color.RGBA{srcColours[num], srcColours[num+1], srcColours[num+2], srcColours[num+3]}
+		mask := &circle{center, r}
 
 		// Draw a random colour on the source file through a circular mask
-		draw.DrawMask(tempImage, srcBounds, &image.Uniform{randomColour}, image.ZP, &circle{center, r}, image.ZP, draw.Over)
+		draw.DrawMask(tempImage, srcBounds, &image.Uniform{randomColour}, image.ZP, mask, image.ZP, draw.Over)
 
-		dstImage, err = getMoreSimilarImage(dstImage, tempImage, srcRGBA)
+		dstImage, err = getMoreSimilarImage(dstImage, tempImage, srcRGBA, mask.Bounds())
 		if err != nil {
 			log.Println(err)
 			return
@@ -230,16 +236,10 @@ Draw:
 		return
 	}
 
-	outImage, err := getMoreSimilarImage(dstImage, tempImage, srcRGBA)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
 	if imageType == "gif" {
-		gif.Encode(outFile, outImage, &gif.Options{NumColors: 256})
+		gif.Encode(outFile, dstImage, &gif.Options{NumColors: 256})
 	} else {
-		png.Encode(outFile, outImage)
+		png.Encode(outFile, dstImage)
 	}
 
 	outFile.Close()
