@@ -5,14 +5,13 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"image/jpeg"
+	"image/gif"
+	_ "image/jpeg"
 	"image/png"
-	"io"
 	"log"
 	"math"
 	"math/rand"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -25,10 +24,12 @@ func (c *circle) ColorModel() color.Model {
 	return color.AlphaModel
 }
 
+// Calculate the bounds of the circle from the center point and radius of the circle
 func (c *circle) Bounds() image.Rectangle {
 	return image.Rect(c.p.X-c.r, c.p.Y-c.r, c.p.X+c.r, c.p.Y+c.r)
 }
 
+// Check whether given coordinates are inside the circle or not
 func (c *circle) At(x, y int) color.Color {
 	xx, yy, rr := float64(x-c.p.X)+0.5, float64(y-c.p.Y)+0.5, float64(c.r)
 	if xx*xx+yy*yy < rr*rr {
@@ -59,10 +60,10 @@ func sqrtDiff(x, y uint8) uint64 {
 }
 
 // getMoreSimilarImage compares image a and image b against a source image and returns the image which is more similar with the source image
-func getMoreSimilarImage(a, b, src *image.RGBA) *image.RGBA {
+func getMoreSimilarImage(a, b, src *image.RGBA) (*image.RGBA, error) {
 	aNum, err := compareImages(a, src)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	bNum, err := compareImages(b, src)
 	if err != nil {
@@ -70,9 +71,9 @@ func getMoreSimilarImage(a, b, src *image.RGBA) *image.RGBA {
 	}
 
 	if aNum > bNum {
-		return b
+		return nil, err
 	}
-	return a
+	return a, nil
 }
 
 // createBlankImage creates a blank in-memory image the size of srcRect and returns it
@@ -91,12 +92,7 @@ func getImageA(fileName string, sourceRect image.Rectangle) *image.RGBA {
 		return createBlankImage(fileName, sourceRect)
 	}
 
-	decoder, err := getDecoder(fileName)
-	if err != nil {
-		panic(err)
-	}
-
-	src, err := decoder(f)
+	src, _, err := image.Decode(f)
 	if err != nil {
 		panic(err)
 	}
@@ -135,33 +131,21 @@ func getFilename() string {
 	return args[0]
 }
 
-// getDecoder takes the filename as an argument and returns the corresponding image decoder
-func getDecoder(s string) (func(r io.Reader) (image.Image, error), error) {
-	if strings.HasSuffix(s, "png") {
-		return png.Decode, nil
-	} else if strings.HasSuffix(s, "jpg") || strings.HasSuffix(s, "jpeg") {
-		return jpeg.Decode, nil
-	}
-	return nil, fmt.Errorf("File type not supported")
-}
-
 func main() {
 	srcFilename := getFilename()
-	decoder, err := getDecoder(srcFilename)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	// Open the source file to use for comparison
 	srcFile, err := os.Open(srcFilename)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	// Decode the source file
-	srcImage, err := decoder(srcFile)
+	srcImage, imageType, err := image.Decode(srcFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	// Conver the source image to RGBA
@@ -224,7 +208,11 @@ Draw:
 		// Draw a random colour on the source file through a circular mask
 		draw.DrawMask(tempImage, srcBounds, &image.Uniform{randomColour}, image.ZP, &circle{center, r}, image.ZP, draw.Over)
 
-		dstImage = getMoreSimilarImage(dstImage, tempImage, srcRGBA)
+		dstImage, err = getMoreSimilarImage(dstImage, tempImage, srcRGBA)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 
 		// Check for the exit signal and break the loop if found
 		select {
@@ -238,13 +226,20 @@ Draw:
 	// Open the output file
 	outFile, err := os.OpenFile("out_"+srcFilename, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
-	if strings.HasSuffix(srcFilename, "png") {
-		png.Encode(outFile, getMoreSimilarImage(dstImage, tempImage, srcRGBA))
-	} else if strings.HasSuffix(srcFilename, "jpg") || strings.HasSuffix(srcFilename, "jpeg") {
-		jpeg.Encode(outFile, getMoreSimilarImage(dstImage, tempImage, srcRGBA), nil)
+	outImage, err := getMoreSimilarImage(dstImage, tempImage, srcRGBA)
+	if err != nil {
+		log.Println(err)
+		return
 	}
+	if imageType == "gif" {
+		gif.Encode(outFile, outImage, &gif.Options{NumColors: 256})
+	} else {
+		png.Encode(outFile, outImage)
+	}
+
 	outFile.Close()
 }
