@@ -71,7 +71,7 @@ func getMoreSimilarImage(a, b, src *image.RGBA) (*image.RGBA, error) {
 	}
 
 	if aNum > bNum {
-		return nil, err
+		return b, nil
 	}
 	return a, nil
 }
@@ -235,6 +235,7 @@ Draw:
 		log.Println(err)
 		return
 	}
+
 	if imageType == "gif" {
 		gif.Encode(outFile, outImage, &gif.Options{NumColors: 256})
 	} else {
