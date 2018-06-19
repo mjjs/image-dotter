@@ -136,6 +136,20 @@ func getFilename() string {
 	return args[0]
 }
 
+// getImagePixels returns an array of uint8 arrays (pixels), each of which hold the R, G, B, A values of the given pixel
+func getImagePixels(img *image.RGBA) [][]uint8 {
+	pixels := make([][]uint8, img.Bounds().Dx()*img.Bounds().Dy())
+	for i := 0; i < len(img.Pix); i += 4 {
+		pixels[i/4] = []uint8{
+			img.Pix[i],
+			img.Pix[i+1],
+			img.Pix[i+2],
+			img.Pix[i+3],
+		}
+	}
+	return pixels
+}
+
 func main() {
 	srcFilename := getFilename()
 
@@ -164,7 +178,7 @@ func main() {
 	srcBounds := srcImage.Bounds()
 	srcWidth := srcBounds.Dx()
 	srcHeight := srcBounds.Dy()
-	srcColours := srcRGBA.Pix
+	srcPixels := getImagePixels(srcRGBA)
 
 	dstImage := getImageA("out_"+srcFilename, srcBounds)
 	tempImage := image.NewRGBA(srcBounds)
@@ -194,24 +208,18 @@ Draw:
 			r++
 		}
 
-		// The colours are in a flat array as [R, G, B, A, R, G, B, A ...]
-		// so we get the indexes of all the indexes for the colour red
-		var possibleIndexes []int
-		for i := 0; i < len(srcColours); i++ {
-			if i%4 == 0 || i == 0 {
-				possibleIndexes = append(possibleIndexes, i)
-			}
+		colorIdx := rand.Intn(len(srcPixels))
+		randomColour := color.RGBA{
+			srcPixels[colorIdx][0],
+			srcPixels[colorIdx][1],
+			srcPixels[colorIdx][2],
+			srcPixels[colorIdx][3],
 		}
 
-		num := possibleIndexes[rand.Intn(len(possibleIndexes))]
-		if num == len(srcColours) {
-			num = 0
-		}
-
-		randomColour := color.RGBA{srcColours[num], srcColours[num+1], srcColours[num+2], srcColours[num+3]}
+		// Create the circular mask
 		mask := &circle{center, r}
 
-		// Draw a random colour on the source file through a circular mask
+		// Draw a random colour on the source file through a given mask
 		draw.DrawMask(tempImage, srcBounds, &image.Uniform{randomColour}, image.ZP, mask, image.ZP, draw.Over)
 
 		dstImage, err = getMoreSimilarImage(dstImage, tempImage, srcRGBA, mask.Bounds())
