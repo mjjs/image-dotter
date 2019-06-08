@@ -77,6 +77,14 @@ func getRandomColourFromPixels(pixels [][]uint8) color.RGBA {
 	}
 }
 
+func getRandomCircularMaskWithinImage(sourceImageData *imageData) *circle {
+	// Get random coordinates to draw at
+	center := getRandomPoint(sourceImageData)
+
+	r := getRandomRadius()
+	return &circle{center, r}
+}
+
 func getAndRunExitListener() chan bool {
 	// Create a channel for exit signaling and run the exit listening function
 	exitSignal := make(chan bool)
@@ -112,13 +120,8 @@ Draw:
 
 		// Copy the destination image to the temporary image
 		draw.Draw(tempImage, sourceImageData.bounds, dstImage, sourceImageData.bounds.Min, draw.Src)
-
-		// Get random coordinates to draw at
-		center := getRandomPoint(sourceImageData)
-
-		r := getRandomRadius()
+		mask := getRandomCircularMaskWithinImage(sourceImageData)
 		colour := getRandomColourFromPixels(sourceImageData.pixels)
-		mask := &circle{center, r}
 
 		// Draw a random colour on the source file through a given mask
 		draw.DrawMask(tempImage, sourceImageData.bounds, &image.Uniform{colour}, image.ZP, mask, image.ZP, draw.Over)
