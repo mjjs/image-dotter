@@ -4,8 +4,6 @@ Image-dotter takes an image and attempts to replicate it using random circles.
 
 This is just a little project done when I was learning go.
 
----
-
 ## Usage
 
 ```bash
@@ -17,7 +15,6 @@ output is saved in `out_<originalFilename>`.
 
 The longer you let the program run, the better the end result.
 
----
 
 ## Example:
 
@@ -25,12 +22,10 @@ The longer you let the program run, the better the end result.
 
 ![Before](Example_in.png)
 
----
 
 ### Output after 50,000 iterations
 ![After 50000 iterations](Example_out_50k.png)
 
----
 
 ### Output after 500,000 iterations
 
