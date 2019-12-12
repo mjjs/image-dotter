@@ -20,13 +20,13 @@ The longer you let the program run, the better the end result.
 
 ### Original image:
 
-![Before](Example_in.png)
+![Before](img/Example_in.png)
 
 
 ### Output after 50,000 iterations
-![After 50000 iterations](Example_out_50k.png)
+![After 50000 iterations](img/Example_out_50k.png)
 
 
 ### Output after 500,000 iterations
 
-![After 500000 iterations](Example_out_500k.png)
+![After 500000 iterations](img/Example_out_500k.png)
