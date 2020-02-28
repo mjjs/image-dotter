@@ -8,8 +8,18 @@ import (
 	"image/gif"
 	"image/png"
 	"math"
+	"math/rand"
 	"os"
+
+	"github.com/mjjs/image-dotter/shape"
 )
+
+type imageData struct {
+	bounds image.Rectangle
+	width  int
+	height int
+	pixels [][]uint8
+}
 
 // createBlankImage creates a blank in-memory image the size of srcRect and returns it
 func createBlankImage(srcRect image.Rectangle) *image.RGBA {
@@ -70,28 +80,29 @@ func getMoreSimilarImage(a, b, src *image.RGBA, changedArea image.Rectangle) (*i
 	return a, nil
 }
 
-// Load an image from the given filename in disk and return it. Returns a blank image if file not found.
-func loadImageFromFile(filename string, srcRect image.Rectangle) (*image.RGBA, error) {
+func openImage(filename string) (rgbaImg *image.RGBA, imgType string, err error) {
 	file, err := os.Open(filename)
 
-	// If file does not exist, create a blank image and return it
-	if os.IsNotExist(err) {
-		return createBlankImage(srcRect), nil
+	if err != nil {
+		return nil, "", fmt.Errorf("Could not open file: %s", err.Error())
 	}
 
 	defer file.Close()
 
-	img, _, err := image.Decode(file)
+	img, imgType, err := image.Decode(file)
+
 	if err != nil {
-		return nil, fmt.Errorf("Could not decode image: %s", err.Error())
+		return nil, "", fmt.Errorf("Could not decode image: %s", err.Error())
 	}
 
-	return cloneImage(img), nil
+	return cloneImage(img), imgType, err
 }
 
-// getImagePixels returns an array of uint8 arrays (pixels), each of which hold the R, G, B, A values of the given pixel
+// getImagePixels returns an array of uint8 arrays (pixels),
+// each of which hold the R, G, B, A values of the given pixel.
 func getImagePixels(img *image.RGBA) [][]uint8 {
 	pixels := make([][]uint8, img.Bounds().Dx()*img.Bounds().Dy())
+
 	for i := 0; i < len(img.Pix); i += 4 {
 		pixels[i/4] = []uint8{
 			img.Pix[i],
@@ -103,28 +114,8 @@ func getImagePixels(img *image.RGBA) [][]uint8 {
 	return pixels
 }
 
-func getSourceImage(filename string) (rgbaImg *image.RGBA, imgType string, err error) {
-	srcFile, err := os.Open(filename)
-
-	if err != nil {
-		err = fmt.Errorf("Could not open source file: %s", err.Error())
-		return
-	}
-
-	defer srcFile.Close()
-
-	img, imgType, err := image.Decode(srcFile)
-
-	if err != nil {
-		err = fmt.Errorf("Could not decode source image: %s", err.Error())
-		return
-	}
-
-	return cloneImage(img), imgType, err
-}
-
 func writeImageToDisk(imageFormat string, image *image.RGBA, outFilename string) error {
-	outFile, err := getDestinationFile()
+	outFile, err := os.OpenFile(outFilename, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
@@ -153,4 +144,35 @@ func extractImageData(img *image.RGBA) *imageData {
 		bounds.Dy(),
 		getImagePixels(img),
 	}
+}
+
+func getRandomCoordinates(width, height int) (x int, y int) {
+	return rand.Intn(width), rand.Intn(height)
+}
+
+func getRandomPoint(sourceImageData *imageData) image.Point {
+	x, y := getRandomCoordinates(sourceImageData.width, sourceImageData.height)
+	return image.Pt(x, y)
+}
+
+func getRandomRadius() int {
+	return rand.Intn(15) + 1
+}
+
+func getRandomColourFromPixels(pixels [][]uint8) color.RGBA {
+	colorIdx := rand.Intn(len(pixels))
+	return color.RGBA{
+		pixels[colorIdx][0],
+		pixels[colorIdx][1],
+		pixels[colorIdx][2],
+		pixels[colorIdx][3],
+	}
+}
+
+func getRandomCircularMaskWithinImage(sourceImageData *imageData) *shape.Circle {
+	// Get random coordinates to draw at
+	center := getRandomPoint(sourceImageData)
+
+	r := getRandomRadius()
+	return &shape.Circle{Center: center, Radius: r}
 }
